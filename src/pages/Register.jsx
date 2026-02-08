@@ -5,18 +5,15 @@ import { Link } from "react-router-dom";
 export default function Register() {
     return (
         <div className="min-h-screen w-full bg-[#0b0f14] text-gray-200 flex">
-            {/* LEFT PANEL */}
             <div className="hidden lg:flex w-1/2 relative p-12">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#0e1320] to-[#070a10]" />
 
                 <div className="relative z-10 flex flex-col justify-between w-full">
-                    {/* Logo */}
                     <div className="flex items-center gap-2 text-emerald-400">
                         <ShieldCheck size={20} />
                         <span className="font-semibold tracking-wide">LIT</span>
                     </div>
 
-                    {/* Hero Text */}
                     <div>
                         <p className="text-emerald-400 text-sm mb-4 font-mono">
                             &gt; system.init()
@@ -33,7 +30,6 @@ export default function Register() {
                         </p>
                     </div>
 
-                    {/* Footer */}
                     <div className="flex gap-6 text-xs text-gray-500">
                         <span className="flex items-center gap-1 text-emerald-400">
                             <ShieldCheck size={14} /> Encrypted
@@ -44,9 +40,7 @@ export default function Register() {
                 </div>
             </div>
 
-            {/* RIGHT PANEL */}
             <div className="w-full lg:w-1/2 flex items-center justify-center relative">
-                {/* Grid background */}
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]" />
 
                 <div className="relative z-10 w-full max-w-md px-8">
@@ -65,7 +59,6 @@ export default function Register() {
                         />
                     </div>
 
-                    {/* Password */}
                     <div className="mb-5">
                         <label className="block text-xs text-gray-400 mb-2">
                             PASSWORD
@@ -76,8 +69,6 @@ export default function Register() {
                             className="w-full rounded-lg bg-[#111827] border border-gray-700 px-4 py-3 text-sm focus:outline-none focus:border-emerald-400"
                         />
                     </div>
-
-                    {/* Confirm Password */}
                     <div className="mb-6">
                         <label className="block text-xs text-gray-400 mb-2">
                             CONFIRM PASSWORD
@@ -89,12 +80,9 @@ export default function Register() {
                         />
                     </div>
 
-                    {/* Sign Up */}
                     <button className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-400 to-emerald-500 text-black font-medium py-3 hover:brightness-110 transition">
                         Sign up <ArrowRight size={16} />
                     </button>
-
-                    {/* Login Link */}
                     <p className="text-center text-sm text-gray-400 mt-6">
                         Already have an account?{" "}
                         <Link to="/login" className="text-emerald-400 cursor-pointer hover:underline">
