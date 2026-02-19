@@ -7,6 +7,8 @@ import StudentExercises from "./pages/student/StudentExercises";
 import StudentHistory from "./pages/student/StudentHistory";
 import StudentSettings from "./pages/student/StudentSettings";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminSettings from "./pages/admin/AdminSettings";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -26,6 +28,8 @@ function App() {
 
         {/* Protected Admin routes */}
         <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute adminOnly={true}><AdminUsers /></ProtectedRoute>} />
+        <Route path="/admin/settings" element={<ProtectedRoute adminOnly={true}><AdminSettings /></ProtectedRoute>} />
 
         {/* Default redirect */}
         <Route path="/" element={<Navigate to="/login" replace />} />

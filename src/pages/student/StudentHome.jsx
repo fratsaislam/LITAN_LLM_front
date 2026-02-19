@@ -2,9 +2,11 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { MessageSquare, BookOpen, Clock, Settings, ArrowRight, Zap, Trophy, Target } from "lucide-react";
+import { useUserDetails } from "../../hooks/useUserDetails";
 
 const StudentHome = () => {
     const navigate = useNavigate();
+    const { user, loading } = useUserDetails();
 
     const stats = [
         { label: "Active Exercises", value: "2", icon: Target, color: "text-emerald-400" },
@@ -32,7 +34,7 @@ const StudentHome = () => {
                         SYSTEM_ACTIVE: SESSION_STABLE
                     </div>
                     <h1 className="text-5xl font-bold text-white tracking-tight">
-                        Welcome back, <span className="text-emerald-400">Alice</span>
+                        Welcome back, <span className="text-emerald-400">{loading ? "..." : (user?.username || "Alice")}</span>
                     </h1>
                     <p className="text-gray-400 mt-4 max-w-2xl text-lg">
                         Your personalized AI learning environment is ready. Continue your progress or explore new exercises.

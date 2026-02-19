@@ -1,18 +1,23 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { LogOut, Home, MessageSquare, BookOpen, Clock, Settings } from "lucide-react";
+import { useUserDetails } from "../hooks/useUserDetails";
+import axiosInstance from "../api/axiosInstance";
 
 const Sidebar = () => {
     const navigate = useNavigate();
-    const role = localStorage.getItem("role") || "student";
+    const { user, loading } = useUserDetails();
 
-    // In a real app, you'd get the name from a user object/context
-    const userName = role === "admin" ? "Dr. Sarah Johnson" : "Alice Martin";
-
-    const handleLogout = () => {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("role");
-        navigate("/login");
+    const handleLogout = async () => {
+        try {
+            await axiosInstance.post("/auth/signout");
+        } catch (error) {
+            console.error("Logout failed:", error);
+        } finally {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("role");
+            navigate("/login");
+        }
     };
 
     const linkClasses = ({ isActive }) =>
@@ -66,12 +71,20 @@ const Sidebar = () => {
             {/* User info & Logout */}
             <div className="p-4 border-t border-gray-800 space-y-4">
                 <div className="flex items-center gap-3 px-2">
-                    <div className="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-emerald-400 font-bold">
-                        {userName.charAt(0)}
+                    <div className="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-emerald-400 font-bold overflow-hidden">
+                        {user?.profilePic ? (
+                            <img src={user.profilePic} alt={user.username} className="w-full h-full object-cover" />
+                        ) : (
+                            <span>{loading ? "..." : (user?.username?.charAt(0) || "U")}</span>
+                        )}
                     </div>
                     <div className="overflow-hidden">
-                        <div className="text-sm font-medium text-white truncate">{userName}</div>
-                        <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">{role}</div>
+                        <div className="text-sm font-medium text-white truncate">
+                            {loading ? "Loading..." : (user?.username || "Guest User")}
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">
+                            {user?.role || "student"}
+                        </div>
                     </div>
                 </div>
 
