@@ -10,7 +10,15 @@ import {
     Eye,
     Trash2,
     Pencil,
-    Save
+    Save,
+    Users,
+    Send,
+    CheckCircle2,
+    Clock,
+    Circle,
+    FileText,
+    Loader2,
+    MessageSquare
 } from 'lucide-react';
 import AdminSidebar from '../../components/AdminSidebar';
 import axiosInstance from '../../api/axiosInstance';
@@ -165,6 +173,327 @@ const DeleteConfirmModal = ({ title, onConfirm, onClose, deleting }) => (
     </div>
 );
 
+/* ─── Assign Exercise Modal (Users + Group quick-select) ─────────────────── */
+const AssignModal = ({ exercise, onClose, onAssigned }) => {
+    const [users, setUsers] = useState([]);
+    const [groups, setGroups] = useState([]);
+    const [selectedUsers, setSelectedUsers] = useState(new Set());
+    const [filterGroup, setFilterGroup] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [usersRes, groupsRes] = await Promise.all([
+                    axiosInstance.get('/auth/all-users'),
+                    axiosInstance.get('/groups/all'),
+                ]);
+                if (usersRes.data.success) setUsers(usersRes.data.data);
+                if (groupsRes.data.success) setGroups(groupsRes.data.data);
+            } catch (err) {
+                setError('Failed to load data.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const filteredUsers = users.filter(u => {
+        const matchesSearch = u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesGroup = !filterGroup || u.groupIdValue === filterGroup;
+        return matchesSearch && matchesGroup;
+    });
+
+    const toggleUser = (userId) => {
+        setSelectedUsers(prev => {
+            const next = new Set(prev);
+            if (next.has(userId)) next.delete(userId);
+            else next.add(userId);
+            return next;
+        });
+    };
+
+    const toggleAll = () => {
+        if (selectedUsers.size === filteredUsers.length && filteredUsers.length > 0) {
+            setSelectedUsers(new Set());
+        } else {
+            setSelectedUsers(new Set(filteredUsers.map(u => u._id)));
+        }
+    };
+
+    const selectGroup = (groupId) => {
+        const groupUsers = users.filter(u => u.groupIdValue === groupId);
+        setSelectedUsers(prev => {
+            const next = new Set(prev);
+            groupUsers.forEach(u => next.add(u._id));
+            return next;
+        });
+    };
+
+    const handleAssign = async () => {
+        if (selectedUsers.size === 0) { setError('Select at least one user.'); return; }
+        setSubmitting(true);
+        setError('');
+        setSuccess('');
+        try {
+            const res = await axiosInstance.post('/exercises/assign', {
+                exerciseId: exercise._id,
+                userIds: Array.from(selectedUsers),
+            });
+            if (res.data.success) {
+                const assigned = res.data.data?.length || 0;
+                const skipped = res.data.skipped || 0;
+                setSuccess(`Assigned to ${assigned} user(s)${skipped > 0 ? ` (${skipped} already had it)` : ''}!`);
+                onAssigned && onAssigned();
+                setTimeout(onClose, 1800);
+            } else {
+                setError(res.data.message || 'Failed to assign.');
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to assign exercise.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+            <div className="w-full max-w-lg bg-[#0f1520] border border-gray-800/60 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-start justify-between p-6 border-b border-gray-800/50 flex-shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Assign Exercise</h2>
+                        <p className="text-xs text-gray-500 font-mono mt-1">"{exercise.title}" — pick users or groups</p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-800/50 rounded-lg transition-all">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Quick group assign buttons */}
+                {groups.length > 0 && (
+                    <div className="px-6 pt-4 flex-shrink-0">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Quick assign by group</label>
+                        <div className="flex flex-wrap gap-2">
+                            {groups.map(g => (
+                                <button
+                                    key={g._id}
+                                    onClick={() => selectGroup(g._id)}
+                                    className="text-xs px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-all font-semibold"
+                                >
+                                    + {g.name} ({g.users?.length || 0})
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Filters */}
+                <div className="px-6 pt-3 pb-2 flex-shrink-0 space-y-3">
+                    <div className="flex gap-3">
+                        <div className="flex-1 relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={14} />
+                            <input
+                                type="text"
+                                placeholder="Search by name or email..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="w-full bg-[#0d1218] border border-gray-800/60 focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs text-white outline-none transition-all"
+                            />
+                        </div>
+                        <select
+                            value={filterGroup}
+                            onChange={e => setFilterGroup(e.target.value)}
+                            className="bg-[#0d1218] border border-gray-800/60 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-xs text-white outline-none transition-all"
+                        >
+                            <option value="">All groups</option>
+                            {groups.map(g => (
+                                <option key={g._id} value={g._id}>{g.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <button
+                            onClick={toggleAll}
+                            className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 uppercase tracking-wider transition-colors"
+                        >
+                            {selectedUsers.size === filteredUsers.length && filteredUsers.length > 0 ? 'Deselect All' : 'Select All'}
+                        </button>
+                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+                            {selectedUsers.size} selected
+                        </span>
+                    </div>
+                </div>
+
+                {/* User list */}
+                <div className="flex-1 overflow-y-auto px-6 pb-2 custom-scrollbar">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-10">
+                            <div className="w-6 h-6 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+                        </div>
+                    ) : filteredUsers.length === 0 ? (
+                        <p className="text-center text-xs text-gray-600 py-10">No users found.</p>
+                    ) : (
+                        <div className="space-y-1">
+                            {filteredUsers.map(user => (
+                                <label
+                                    key={user._id}
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
+                                        selectedUsers.has(user._id)
+                                            ? 'bg-emerald-500/10 border border-emerald-500/20'
+                                            : 'border border-transparent hover:bg-gray-800/30'
+                                    }`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedUsers.has(user._id)}
+                                        onChange={() => toggleUser(user._id)}
+                                        className="accent-emerald-500 w-4 h-4 rounded flex-shrink-0"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-white font-medium truncate">{user.username}</p>
+                                        <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+                                    </div>
+                                    {user.groupName && (
+                                        <span className="text-[10px] font-bold text-gray-600 bg-gray-800/50 px-2 py-0.5 rounded-full flex-shrink-0">
+                                            {user.groupName}
+                                        </span>
+                                    )}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="border-t border-gray-800/50 px-6 py-4 flex-shrink-0">
+                    {error && <p className="text-xs text-rose-400 font-medium mb-3">{error}</p>}
+                    {success && <p className="text-xs text-emerald-400 font-medium mb-3">{success}</p>}
+                    <div className="flex justify-end gap-3">
+                        <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all">Cancel</button>
+                        <button
+                            onClick={handleAssign}
+                            disabled={submitting || selectedUsers.size === 0}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Send size={14} />
+                            {submitting ? 'Assigning...' : `Assign to ${selectedUsers.size} User${selectedUsers.size !== 1 ? 's' : ''}`}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* ─── Submission View Modal ──────────────────────────────────────────────── */
+const SubmissionViewModal = ({ assignment, onClose }) => {
+    const [tab, setTab] = useState('conversation'); // 'conversation' | 'result'
+    const [conversation, setConversation] = useState([]);
+    const [loadingConv, setLoadingConv] = useState(true);
+
+    useEffect(() => {
+        const fetchConversation = async () => {
+            try {
+                const res = await axiosInstance.get(`/exercises/conversation/${assignment._id}`);
+                if (res.data.success && res.data.data.found) {
+                    setConversation(res.data.data.messages);
+                }
+            } catch (err) {
+                console.error('Failed to load conversation:', err);
+            } finally {
+                setLoadingConv(false);
+            }
+        };
+        fetchConversation();
+    }, [assignment._id]);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+            <div className="w-full max-w-2xl bg-[#0f1520] border border-gray-800/60 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-start justify-between p-6 border-b border-gray-800/50 flex-shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Submission — {assignment.username}</h2>
+                        <p className="text-xs text-gray-500 font-mono mt-1">
+                            Completed {assignment.completedAt ? new Date(assignment.completedAt).toLocaleString() : 'N/A'}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-800/50 rounded-lg transition-all">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 px-6 pt-4 pb-2 border-b border-gray-800/30">
+                    <button
+                        onClick={() => setTab('conversation')}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'conversation' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'}`}
+                    >
+                        <MessageSquare size={13} /> Full Conversation
+                        {!loadingConv && <span className="ml-1 text-[10px] opacity-60">({conversation.length})</span>}
+                    </button>
+                    <button
+                        onClick={() => setTab('result')}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'result' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'}`}
+                    >
+                        <FileText size={13} /> Submitted Result
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                    {tab === 'conversation' ? (
+                        loadingConv ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 size={20} className="animate-spin text-gray-500 mr-2" />
+                                <span className="text-xs text-gray-500">Loading conversation...</span>
+                            </div>
+                        ) : conversation.length === 0 ? (
+                            <div className="text-center py-12">
+                                <MessageSquare size={32} className="mx-auto text-gray-700 mb-3" />
+                                <p className="text-sm text-gray-500">No conversation found</p>
+                                <p className="text-xs text-gray-600 mt-1">The student may not have chatted with the AI for this exercise.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {conversation.map((msg, i) => (
+                                    <div key={i} className={`p-4 rounded-xl text-sm ${msg.role === 'user'
+                                        ? 'bg-blue-500/10 border border-blue-500/15 text-blue-200 ml-8'
+                                        : 'bg-gray-800/30 border border-gray-800/50 text-gray-300 mr-8'
+                                    }`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${msg.role === 'user' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-700/50 text-gray-500'}`}>
+                                                {msg.role === 'user' ? '👤 Student' : '🤖 AI'}
+                                            </span>
+                                        </div>
+                                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    ) : (
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Student's Submitted Result</label>
+                                <pre className="text-sm text-gray-300 font-mono bg-[#0b0f14]/80 border border-gray-800/50 rounded-xl p-4 whitespace-pre-wrap">
+                                    {assignment.result || <span className="text-gray-600 italic">No result text submitted.</span>}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 const AdminExercises = () => {
     const [exercises, setExercises] = useState([]);
@@ -175,6 +504,10 @@ const AdminExercises = () => {
     const [editingExercise, setEditingExercise] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
+    const [assignTarget, setAssignTarget] = useState(null);
+    const [assignedUsers, setAssignedUsers] = useState([]);
+    const [loadingAssigned, setLoadingAssigned] = useState(false);
+    const [viewingResult, setViewingResult] = useState(null);
 
     useEffect(() => {
         const fetchExercises = async () => {
@@ -189,6 +522,24 @@ const AdminExercises = () => {
         };
         fetchExercises();
     }, []);
+
+    // Fetch assigned users whenever selected exercise changes
+    useEffect(() => {
+        if (!selectedExercise) { setAssignedUsers([]); return; }
+        const fetchAssigned = async () => {
+            setLoadingAssigned(true);
+            try {
+                const res = await axiosInstance.get(`/exercises/assigned/${selectedExercise._id}`);
+                if (res.data.success) setAssignedUsers(res.data.data);
+            } catch (err) {
+                console.error('Error fetching assigned users:', err);
+                setAssignedUsers([]);
+            } finally {
+                setLoadingAssigned(false);
+            }
+        };
+        fetchAssigned();
+    }, [selectedExercise?._id]);
 
     const handleSaved = (savedExercise, isEdit) => {
         if (isEdit) {
@@ -213,6 +564,30 @@ const AdminExercises = () => {
             console.error('Error deleting exercise:', err);
         } finally {
             setDeleting(false);
+        }
+    };
+
+    const refreshAssigned = async () => {
+        if (!selectedExercise) return;
+        try {
+            const res = await axiosInstance.get(`/exercises/assigned/${selectedExercise._id}`);
+            if (res.data.success) setAssignedUsers(res.data.data);
+        } catch (err) { /* silent */ }
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'completed': return <CheckCircle2 size={14} className="text-emerald-400" />;
+            case 'in_progress': return <Clock size={14} className="text-amber-400" />;
+            default: return <Circle size={14} className="text-gray-600" />;
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'completed': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+            case 'in_progress': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+            default: return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
         }
     };
 
@@ -244,6 +619,21 @@ const AdminExercises = () => {
                     onConfirm={handleDelete}
                     onClose={() => setDeleteTarget(null)}
                     deleting={deleting}
+                />
+            )}
+            {/* Assign modal */}
+            {assignTarget && (
+                <AssignModal
+                    exercise={assignTarget}
+                    onClose={() => setAssignTarget(null)}
+                    onAssigned={refreshAssigned}
+                />
+            )}
+            {/* Result viewer modal */}
+            {viewingResult && (
+                <SubmissionViewModal
+                    assignment={viewingResult}
+                    onClose={() => setViewingResult(null)}
                 />
             )}
 
@@ -332,6 +722,12 @@ const AdminExercises = () => {
                                     <h2 className="text-2xl font-bold">{selectedExercise.title}</h2>
                                     <div className="flex items-center gap-2">
                                         <button
+                                            onClick={() => setAssignTarget(selectedExercise)}
+                                            className="flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded-lg hover:bg-blue-500/10 transition-all"
+                                        >
+                                            <Users size={14} /> Assign
+                                        </button>
+                                        <button
                                             onClick={() => setEditingExercise(selectedExercise)}
                                             className="flex items-center gap-1.5 text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
                                         >
@@ -368,6 +764,51 @@ const AdminExercises = () => {
                                             <p className="text-sm text-gray-400">{new Date(selectedExercise.updatedAt).toLocaleString()}</p>
                                         </div>
                                     )}
+
+                                    {/* Assigned Users Section */}
+                                    <div className="pt-6 border-t border-gray-800/50">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] flex items-center gap-1.5">
+                                                <Users size={12} /> Assigned Users
+                                            </label>
+                                            <span className="text-[10px] font-bold text-gray-600">{assignedUsers.length} total</span>
+                                        </div>
+                                        {loadingAssigned ? (
+                                            <div className="flex items-center gap-2 py-3">
+                                                <div className="w-4 h-4 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+                                                <span className="text-xs text-gray-500">Loading...</span>
+                                            </div>
+                                        ) : assignedUsers.length === 0 ? (
+                                            <p className="text-xs text-gray-600 italic py-2">No users assigned yet. Click "Assign" to add users.</p>
+                                        ) : (
+                                            <div className="space-y-1.5 max-h-[250px] overflow-y-auto custom-scrollbar">
+                                                {assignedUsers.map(au => (
+                                                    <div key={au._id} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-800/20 border border-gray-800/40">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs text-white font-medium truncate">{au.username}</p>
+                                                            <p className="text-[10px] text-gray-500 truncate">{au.email}</p>
+                                                        </div>
+                                                        {au.groupName && (
+                                                            <span className="text-[10px] text-gray-600 bg-gray-800/50 px-2 py-0.5 rounded-full flex-shrink-0">{au.groupName}</span>
+                                                        )}
+                                                        <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(au.status)}`}>
+                                                            {getStatusIcon(au.status)}
+                                                            {au.status === 'in_progress' ? 'In Progress' : au.status === 'completed' ? 'Done' : 'Assigned'}
+                                                        </span>
+                                                        {au.status === 'completed' && au.result && (
+                                                            <button
+                                                                onClick={() => setViewingResult(au)}
+                                                                className="flex items-center gap-1 text-[10px] font-bold text-blue-400 hover:text-blue-300 px-2 py-0.5 rounded-lg hover:bg-blue-500/10 transition-all flex-shrink-0"
+                                                            >
+                                                                <FileText size={12} /> View
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="pt-6 border-t border-gray-800/50">
                                         <p className="text-gray-600 text-[10px] italic">Exercise ID: {selectedExercise._id}</p>
                                     </div>

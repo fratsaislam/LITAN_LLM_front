@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "../../components/Layout";
 import axiosInstance from "../../api/axiosInstance";
 import { Send, Bot, User, Plus, Trash2, MessageSquare, Loader2 } from "lucide-react";
 
 const StudentChat = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -28,6 +29,20 @@ const StudentChat = () => {
   useEffect(() => {
     fetchConversations();
   }, []);
+
+  // Check for conversationId in URL and load it
+  useEffect(() => {
+    const conversationId = searchParams.get('conversationId');
+    if (conversationId && conversations.length > 0) {
+      // Check if this conversation exists in the list
+      const exists = conversations.find(c => c._id === conversationId);
+      if (exists) {
+        loadConversation(conversationId);
+        // Clear the query parameter after loading
+        setSearchParams({});
+      }
+    }
+  }, [searchParams, conversations]);
 
   const fetchConversations = async () => {
     setSidebarLoading(true);

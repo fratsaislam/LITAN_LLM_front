@@ -13,23 +13,26 @@ import axiosInstance from '../../api/axiosInstance';
 
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
-        const fetchUsers = async () => {
+        const fetchData = async () => {
             try {
-                const response = await axiosInstance.get('/auth/all-users');
-                if (response.data.success) {
-                    setUsers(response.data.data);
-                }
+                const [usersRes, groupsRes] = await Promise.all([
+                    axiosInstance.get('/auth/all-users'),
+                    axiosInstance.get('/groups/all'),
+                ]);
+                if (usersRes.data.success) setUsers(usersRes.data.data);
+                if (groupsRes.data.success) setGroups(groupsRes.data.data);
             } catch (error) {
-                console.error("Error fetching users:", error);
+                console.error("Error fetching data:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchUsers();
+        fetchData();
     }, []);
 
     const filteredUsers = users.filter(user =>
@@ -46,6 +49,19 @@ const AdminUsers = () => {
         } catch (error) {
             console.error("Error updating role:", error);
             alert("Failed to update user role");
+        }
+    };
+
+    const handleGroupAssign = async (userId, groupId) => {
+        try {
+            const response = await axiosInstance.post('/groups/assign-user', { userId, groupId });
+            if (response.data.success) {
+                const groupName = groups.find(g => g._id === groupId)?.name || null;
+                setUsers(users.map(u => u._id === userId ? { ...u, groupIdValue: groupId, groupName } : u));
+            }
+        } catch (error) {
+            console.error("Error assigning group:", error);
+            alert("Failed to assign user to group");
         }
     };
 
@@ -146,9 +162,16 @@ const AdminUsers = () => {
                                                 </select>
                                             </td>
                                             <td className="px-6 py-5">
-                                                <span className="text-xs font-medium text-gray-400">
-                                                    {user.groupName || '—'}
-                                                </span>
+                                                <select
+                                                    value={user.groupIdValue || ''}
+                                                    onChange={(e) => handleGroupAssign(user._id, e.target.value)}
+                                                    className="appearance-none bg-[#161b22] border border-gray-800 rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-wider outline-none focus:border-emerald-500/50 transition-all cursor-pointer text-gray-400 max-w-[140px]"
+                                                >
+                                                    <option value="">No Group</option>
+                                                    {groups.map(g => (
+                                                        <option key={g._id} value={g._id}>{g.name}</option>
+                                                    ))}
+                                                </select>
                                             </td>
                                             <td className="px-6 py-5 text-right pr-10">
                                                 <button className="p-2 text-gray-600 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all">

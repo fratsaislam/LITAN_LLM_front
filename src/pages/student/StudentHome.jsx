@@ -1,24 +1,40 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { MessageSquare, BookOpen, Clock, Settings, ArrowRight, Zap, Trophy, Target } from "lucide-react";
+import { MessageSquare, BookOpen, Clock, Settings, ArrowRight, Zap, Trophy, Target, CheckCircle2 } from "lucide-react";
 import { useUserDetails } from "../../hooks/useUserDetails";
+import axiosInstance from "../../api/axiosInstance";
 
 const StudentHome = () => {
     const navigate = useNavigate();
     const { user, loading } = useUserDetails();
+    const [stats, setStats] = useState(null);
+    const [statsLoading, setStatsLoading] = useState(true);
+    const [recentConversations, setRecentConversations] = useState([]);
 
-    const stats = [
-        { label: "Active Exercises", value: "2", icon: Target, color: "text-emerald-400" },
-        { label: "Hours Learned", value: "12.5", icon: Clock, color: "text-blue-400" },
-        { label: "AI Interactions", value: "154", icon: Zap, color: "text-amber-400" },
-        { label: "XP Points", value: "2,450", icon: Trophy, color: "text-purple-400" },
-    ];
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [statsRes, convsRes] = await Promise.all([
+                    axiosInstance.get('/stats/my'),
+                    axiosInstance.get('/conv/user'),
+                ]);
+                if (statsRes.data.success) setStats(statsRes.data.data);
+                if (convsRes.data.success) setRecentConversations(convsRes.data.data.slice(0, 3));
+            } catch (err) {
+                console.error('Failed to fetch home data:', err);
+            } finally {
+                setStatsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
 
-    const recentActivity = [
-        { id: 1, action: "Finished 'Photosynthesis' exercise", time: "2 hours ago", type: "exercise" },
-        { id: 2, action: "Started new chat with GPT-4", time: "5 hours ago", type: "chat" },
-        { id: 3, action: "Updated profile settings", time: "Yesterday", type: "settings" },
+    const statCards = [
+        { label: "Exercises Assigned", value: stats?.totalExercises ?? "—", icon: Target, color: "text-emerald-400" },
+        { label: "Completed", value: stats?.completedExercises ?? "—", icon: CheckCircle2, color: "text-blue-400" },
+        { label: "AI Conversations", value: stats?.totalConversations ?? "—", icon: Zap, color: "text-amber-400" },
+        { label: "In Progress", value: stats?.inProgressExercises ?? "—", icon: Clock, color: "text-purple-400" },
     ];
 
     return (
@@ -43,7 +59,7 @@ const StudentHome = () => {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10">
-                    {stats.map((stat, i) => (
+                    {statCards.map((stat, i) => (
                         <div key={i} className="bg-[#0f1218] border border-gray-800 p-6 rounded-2xl hover:border-gray-700 transition shadow-xl group">
                             <div className="flex items-center justify-between mb-4">
                                 <div className={`p-2 rounded-lg bg-gray-900 border border-gray-800 ${stat.color} group-hover:scale-110 transition-transform`}>
@@ -51,7 +67,11 @@ const StudentHome = () => {
                                 </div>
                                 <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">{stat.label}</span>
                             </div>
-                            <div className="text-3xl font-bold text-white">{stat.value}</div>
+                            {statsLoading ? (
+                                <div className="h-9 w-12 bg-gray-800 rounded animate-pulse" />
+                            ) : (
+                                <div className="text-3xl font-bold text-white">{stat.value}</div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -92,20 +112,29 @@ const StudentHome = () => {
                     {/* Side Sidebar: Recent Activity */}
                     <div className="space-y-6">
                         <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                            Recent Activity
+                            Recent Conversations
                         </h3>
                         <div className="bg-[#0f1218]/50 border border-gray-800 rounded-3xl p-8 space-y-8">
-                            {recentActivity.map((activity) => (
-                                <div key={activity.id} className="flex gap-4 relative">
-                                    <div className="mt-1 w-2 h-2 rounded-full bg-emerald-500 shrink-0 z-10" />
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-gray-200 leading-snug">{activity.action}</p>
-                                        <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">{activity.time}</p>
+                            {recentConversations.length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">No conversations yet. Start chatting!</p>
+                            ) : (
+                                recentConversations.map((conv) => (
+                                    <div key={conv._id} className="flex gap-4 relative cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/chat')}>
+                                        <div className="mt-1 w-2 h-2 rounded-full bg-emerald-500 shrink-0 z-10" />
+                                        <div className="space-y-1">
+                                            <p className="text-sm text-gray-200 leading-snug">{conv.title}</p>
+                                            <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
+                                                {conv.messageCount} messages • {new Date(conv.updatedAt).toLocaleDateString()}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                            <button className="w-full py-4 text-xs font-bold text-gray-500 hover:text-emerald-400 border-t border-gray-800/50 transition-colors uppercase tracking-widest pt-8">
-                                View Full Activity Log
+                                ))
+                            )}
+                            <button
+                                onClick={() => navigate('/history')}
+                                className="w-full py-4 text-xs font-bold text-gray-500 hover:text-emerald-400 border-t border-gray-800/50 transition-colors uppercase tracking-widest pt-8"
+                            >
+                                View All History
                             </button>
                         </div>
 
