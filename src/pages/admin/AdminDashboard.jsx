@@ -38,19 +38,17 @@ export default function AdminDashboard() {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // Fetch real backend endpoints in parallel
-                const [usersRes, exercisesRes, groupsRes] = await Promise.allSettled([
-                    axiosInstance.get('/api/auth/all-users'),
-                    axiosInstance.get('/api/exercises/all'),
-                    axiosInstance.get('/api/groups/all'),
-                ]);
-
-                setStats({
-                    users: usersRes.status === 'fulfilled' ? (usersRes.value.data?.data?.length ?? null) : null,
-                    exercises: exercisesRes.status === 'fulfilled' ? (exercisesRes.value.data?.data?.length ?? null) : null,
-                    groups: groupsRes.status === 'fulfilled' ? (groupsRes.value.data?.data?.length ?? null) : null,
-                    conversations: null, // no admin conversations endpoint yet
-                });
+                const response = await axiosInstance.get('/stats/all');
+                
+                if (response.data.success) {
+                    const data = response.data.data;
+                    setStats({
+                        users: data.totalUsers,
+                        exercises: data.totalExercises,
+                        groups: data.totalGroups,
+                        conversations: data.totalConversations
+                    });
+                }
             } catch (error) {
                 console.error('Error fetching stats:', error);
             } finally {
