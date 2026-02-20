@@ -2,20 +2,26 @@ import React, { useState, useEffect } from 'react';
 import {
     BookOpen,
     Plus,
-    Users,
     Calendar,
     Search,
     ChevronRight,
     X,
     Code,
-    Eye
+    Eye,
+    Trash2,
+    Pencil,
+    Save
 } from 'lucide-react';
 import AdminSidebar from '../../components/AdminSidebar';
 import axiosInstance from '../../api/axiosInstance';
 
-/* ─── Create Exercise Modal ──────────────────────────────────────────────── */
-const CreateExerciseModal = ({ onClose, onCreated }) => {
-    const [form, setForm] = useState({ title: '', description: '', difficulty: 'easy', markdownContent: '' });
+/* ─── Exercise Modal (Create / Edit) ─────────────────────────────────────── */
+const ExerciseModal = ({ onClose, onSaved, exercise = null }) => {
+    const isEdit = Boolean(exercise);
+    const [form, setForm] = useState({
+        title: exercise?.title || '',
+        markdownContent: exercise?.markdownContent || '',
+    });
     const [tab, setTab] = useState('edit'); // 'edit' | 'preview'
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -25,12 +31,23 @@ const CreateExerciseModal = ({ onClose, onCreated }) => {
         if (!form.markdownContent.trim()) { setError('Markdown content is required.'); return; }
         setSubmitting(true);
         try {
-            const response = await axiosInstance.post('/api/exercises/create', { title: form.title, markdownContent: form.markdownContent, difficulty: form.difficulty });
+            let response;
+            if (isEdit) {
+                response = await axiosInstance.put(`/exercises/edit/${exercise._id}`, {
+                    title: form.title,
+                    markdownContent: form.markdownContent,
+                });
+            } else {
+                response = await axiosInstance.post('/exercises/create', {
+                    title: form.title,
+                    markdownContent: form.markdownContent,
+                });
+            }
             if (response.data.success) {
-                onCreated(response.data.data);
+                onSaved(response.data.data, isEdit);
                 onClose();
             } else {
-                setError(response.data.message || 'Failed to create exercise.');
+                setError(response.data.message || `Failed to ${isEdit ? 'update' : 'create'} exercise.`);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'An error occurred.');
@@ -45,8 +62,10 @@ const CreateExerciseModal = ({ onClose, onCreated }) => {
                 {/* Header */}
                 <div className="flex items-start justify-between p-6 border-b border-gray-800/50">
                     <div>
-                        <h2 className="text-lg font-bold text-white">Create New Exercise</h2>
-                        <p className="text-xs text-gray-500 font-mono mt-1">Write a markdown-based activity for students.</p>
+                        <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit Exercise' : 'Create New Exercise'}</h2>
+                        <p className="text-xs text-gray-500 font-mono mt-1">
+                            {isEdit ? 'Update the exercise details below.' : 'Write a markdown-based activity for students.'}
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-800/50 rounded-lg transition-all">
                         <X size={18} />
@@ -66,32 +85,6 @@ const CreateExerciseModal = ({ onClose, onCreated }) => {
                             onChange={e => setForm({ ...form, title: e.target.value })}
                             className="w-full bg-[#0d1218] border border-emerald-500/40 focus:border-emerald-500 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-all"
                         />
-                    </div>
-
-                    {/* Description + Difficulty side by side */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Description</label>
-                            <input
-                                type="text"
-                                placeholder="Short summary of the exercise"
-                                value={form.description}
-                                onChange={e => setForm({ ...form, description: e.target.value })}
-                                className="w-full bg-[#0d1218] border border-gray-800/60 focus:border-emerald-500/50 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-all"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Difficulty</label>
-                            <select
-                                value={form.difficulty}
-                                onChange={e => setForm({ ...form, difficulty: e.target.value })}
-                                className="w-full bg-[#0d1218] border border-gray-800/60 focus:border-emerald-500/50 rounded-xl px-4 py-3 text-sm text-white outline-none transition-all appearance-none cursor-pointer"
-                            >
-                                <option value="easy">Easy</option>
-                                <option value="medium">Medium</option>
-                                <option value="hard">Hard</option>
-                            </select>
-                        </div>
                     </div>
 
                     {/* Markdown Content */}
@@ -137,15 +130,40 @@ const CreateExerciseModal = ({ onClose, onCreated }) => {
                     <button
                         onClick={handleSubmit}
                         disabled={submitting}
-                        className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {submitting ? 'Creating...' : 'Create Exercise'}
+                        {isEdit ? <Save size={14} /> : <Plus size={14} />}
+                        {submitting ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Exercise')}
                     </button>
                 </div>
             </div>
         </div>
     );
 };
+
+/* ─── Delete Confirmation Modal ──────────────────────────────────────────── */
+const DeleteConfirmModal = ({ title, onConfirm, onClose, deleting }) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="w-full max-w-sm bg-[#0f1520] border border-gray-800/60 rounded-2xl shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-2">Delete Exercise</h3>
+            <p className="text-sm text-gray-400 mb-6">
+                Are you sure you want to delete <span className="text-white font-semibold">"{title}"</span>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+                <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all">
+                    Cancel
+                </button>
+                <button
+                    onClick={onConfirm}
+                    disabled={deleting}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-600 text-white transition-all disabled:opacity-50"
+                >
+                    {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+            </div>
+        </div>
+    </div>
+);
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 const AdminExercises = () => {
@@ -154,6 +172,9 @@ const AdminExercises = () => {
     const [selectedExercise, setSelectedExercise] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showModal, setShowModal] = useState(false);
+    const [editingExercise, setEditingExercise] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         const fetchExercises = async () => {
@@ -169,27 +190,63 @@ const AdminExercises = () => {
         fetchExercises();
     }, []);
 
-    const handleCreated = (newExercise) => {
-        setExercises(prev => [newExercise, ...prev]);
-    };
-
-    const filteredExercises = exercises.filter(e =>
-        e.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const getDifficultyColor = (d) => {
-        switch (d?.toLowerCase()) {
-            case 'easy': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-            case 'medium': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-            case 'hard': return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
-            default: return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+    const handleSaved = (savedExercise, isEdit) => {
+        if (isEdit) {
+            setExercises(prev => prev.map(e => e._id === savedExercise._id ? savedExercise : e));
+            setSelectedExercise(savedExercise);
+        } else {
+            setExercises(prev => [savedExercise, ...prev]);
         }
     };
 
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        try {
+            const response = await axiosInstance.delete(`/exercises/delete/${deleteTarget._id}`);
+            if (response.data.success) {
+                setExercises(prev => prev.filter(e => e._id !== deleteTarget._id));
+                if (selectedExercise?._id === deleteTarget._id) setSelectedExercise(null);
+                setDeleteTarget(null);
+            }
+        } catch (err) {
+            console.error('Error deleting exercise:', err);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const filteredExercises = exercises.filter(e =>
+        e.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
         <div className="flex h-screen bg-[#0b0f14] text-white overflow-hidden">
-            {showModal && <CreateExerciseModal onClose={() => setShowModal(false)} onCreated={handleCreated} />}
+            {/* Create modal */}
+            {showModal && (
+                <ExerciseModal
+                    onClose={() => setShowModal(false)}
+                    onSaved={handleSaved}
+                />
+            )}
+            {/* Edit modal */}
+            {editingExercise && (
+                <ExerciseModal
+                    exercise={editingExercise}
+                    onClose={() => setEditingExercise(null)}
+                    onSaved={handleSaved}
+                />
+            )}
+            {/* Delete confirmation */}
+            {deleteTarget && (
+                <DeleteConfirmModal
+                    title={deleteTarget.title}
+                    onConfirm={handleDelete}
+                    onClose={() => setDeleteTarget(null)}
+                    deleting={deleting}
+                />
+            )}
+
             <AdminSidebar />
 
             <main className="flex-1 flex flex-col min-w-0">
@@ -248,13 +305,15 @@ const AdminExercises = () => {
                                             </div>
                                             <h3 className="font-bold text-gray-200 group-hover:text-white transition-colors">{exercise.title}</h3>
                                         </div>
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getDifficultyColor(exercise.difficulty)}`}>
-                                            {exercise.difficulty || 'medium'}
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${exercise.isActive !== false ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-gray-400 bg-gray-500/10 border-gray-500/20'}`}>
+                                            {exercise.isActive !== false ? 'Active' : 'Inactive'}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-500 line-clamp-2 mb-4">{exercise.description}</p>
+                                    <p className="text-xs text-gray-500 line-clamp-2 mb-4 font-mono">
+                                        {exercise.markdownContent?.substring(0, 120)}
+                                        {exercise.markdownContent?.length > 120 ? '...' : ''}
+                                    </p>
                                     <div className="flex items-center gap-6 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                                        <div className="flex items-center gap-1.5"><Users size={12} />{exercise.groupsCount || 0} groups</div>
                                         <div className="flex items-center gap-1.5"><Calendar size={12} />{new Date(exercise.createdAt).toLocaleDateString()}</div>
                                     </div>
                                     {selectedExercise?._id === exercise._id && (
@@ -271,23 +330,46 @@ const AdminExercises = () => {
                             <div className="p-8 h-full overflow-y-auto custom-scrollbar">
                                 <div className="flex items-center justify-between mb-8">
                                     <h2 className="text-2xl font-bold">{selectedExercise.title}</h2>
-                                    <button className="text-xs font-bold text-emerald-500 hover:text-emerald-400 flex items-center gap-1">
-                                        Edit Details <ChevronRight size={14} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setEditingExercise(selectedExercise)}
+                                            className="flex items-center gap-1.5 text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
+                                        >
+                                            <Pencil size={14} /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => setDeleteTarget(selectedExercise)}
+                                            className="flex items-center gap-1.5 text-xs font-bold text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-lg hover:bg-rose-500/10 transition-all"
+                                        >
+                                            <Trash2 size={14} /> Delete
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Description</label>
-                                        <p className="text-sm text-gray-400 leading-relaxed">{selectedExercise.description}</p>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Status</label>
+                                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${selectedExercise.isActive !== false ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-gray-400 bg-gray-500/10 border-gray-500/20'}`}>
+                                            {selectedExercise.isActive !== false ? 'Active' : 'Inactive'}
+                                        </span>
                                     </div>
-                                    {selectedExercise.content && (
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Markdown Content</label>
+                                        <pre className="text-xs text-gray-400 font-mono bg-[#0b0f14]/80 border border-gray-800/50 rounded-xl p-4 overflow-auto whitespace-pre-wrap">
+                                            {selectedExercise.markdownContent}
+                                        </pre>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Created</label>
+                                        <p className="text-sm text-gray-400">{new Date(selectedExercise.createdAt).toLocaleString()}</p>
+                                    </div>
+                                    {selectedExercise.updatedAt && selectedExercise.updatedAt !== selectedExercise.createdAt && (
                                         <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Markdown Content</label>
-                                            <pre className="text-xs text-gray-400 font-mono bg-[#0b0f14]/80 border border-gray-800/50 rounded-xl p-4 overflow-auto whitespace-pre-wrap">{selectedExercise.content}</pre>
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">Last Updated</label>
+                                            <p className="text-sm text-gray-400">{new Date(selectedExercise.updatedAt).toLocaleString()}</p>
                                         </div>
                                     )}
                                     <div className="pt-6 border-t border-gray-800/50">
-                                        <p className="text-gray-600 text-[10px] italic">Exercise data loaded from registry</p>
+                                        <p className="text-gray-600 text-[10px] italic">Exercise ID: {selectedExercise._id}</p>
                                     </div>
                                 </div>
                             </div>
