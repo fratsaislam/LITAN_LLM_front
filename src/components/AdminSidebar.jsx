@@ -35,7 +35,7 @@ const AdminSidebar = () => {
         { name: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
         { name: 'Users', icon: Users, path: '/admin/users' },
         { name: 'Groups', icon: Layers, path: '/admin/groups' },
-        { name: 'Experiments', icon: FlaskConical, path: '/admin/experiments' },
+
         { name: 'Exercises', icon: BookOpen, path: '/admin/exercises' },
         { name: 'Analytics', icon: BarChart, path: '/admin/analytics' },
         { name: 'Settings', icon: Settings, path: '/admin/settings' },
@@ -65,8 +65,8 @@ const AdminSidebar = () => {
                             key={item.name}
                             onClick={() => navigate(item.path)}
                             className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium transition-all group ${isActive
-                                    ? 'bg-emerald-500/5 text-emerald-400 border border-emerald-500/20'
-                                    : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/20'
+                                ? 'bg-emerald-500/5 text-emerald-400 border border-emerald-500/20'
+                                : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/20'
                                 }`}
                         >
                             <item.icon size={20} className={isActive ? 'text-emerald-400' : 'text-gray-600 group-hover:text-gray-400'} />

@@ -9,7 +9,6 @@ import StudentSettings from "./pages/student/StudentSettings";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminGroups from "./pages/admin/AdminGroups";
-import AdminExperiments from "./pages/admin/AdminExperiments";
 import AdminExercises from "./pages/admin/AdminExercises";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminSettings from "./pages/admin/AdminSettings";
@@ -34,7 +33,6 @@ function App() {
         <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly={true}><AdminUsers /></ProtectedRoute>} />
         <Route path="/admin/groups" element={<ProtectedRoute adminOnly={true}><AdminGroups /></ProtectedRoute>} />
-        <Route path="/admin/experiments" element={<ProtectedRoute adminOnly={true}><AdminExperiments /></ProtectedRoute>} />
         <Route path="/admin/exercises" element={<ProtectedRoute adminOnly={true}><AdminExercises /></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute adminOnly={true}><AdminAnalytics /></ProtectedRoute>} />
         <Route path="/admin/settings" element={<ProtectedRoute adminOnly={true}><AdminSettings /></ProtectedRoute>} />

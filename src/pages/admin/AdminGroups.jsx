@@ -8,7 +8,10 @@ import {
     EyeOff,
     LayoutGrid,
     List,
-    X
+    X,
+    Pencil,
+    Trash2,
+    Save
 } from 'lucide-react';
 import AdminSidebar from '../../components/AdminSidebar';
 import axiosInstance from '../../api/axiosInstance';
@@ -21,9 +24,15 @@ const GROUP_COLORS = [
     { label: 'Rose', value: '#f43f5e' },
 ];
 
-/* ─── Create Group Modal ──────────────────────────────────────────────────── */
-const CreateGroupModal = ({ onClose, onCreated }) => {
-    const [form, setForm] = useState({ name: '', description: '', promptTweaks: '', color: GROUP_COLORS[0].value });
+/* ─── Group Modal (Create / Edit) ────────────────────────────────────────── */
+const GroupModal = ({ onClose, onSaved, group = null }) => {
+    const isEdit = Boolean(group);
+    const [form, setForm] = useState({
+        name: group?.name || '',
+        description: group?.description || '',
+        promptTweaks: group?.promptTweaks || '',
+        color: group?.color || GROUP_COLORS[0].value,
+    });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -33,12 +42,19 @@ const CreateGroupModal = ({ onClose, onCreated }) => {
         setSubmitting(true);
         try {
             const payload = { name: form.name, description: form.description, promptTweaks: form.promptTweaks };
-            const response = await axiosInstance.post('/api/groups/create', payload);
+            let response;
+            if (isEdit) {
+                response = await axiosInstance.put(`/groups/edit/${group._id}`, payload);
+            } else {
+                response = await axiosInstance.post('/groups/create', payload);
+            }
             if (response.data.success) {
-                onCreated(response.data.data);
+                // Preserve color locally since backend doesn't store it
+                const savedGroup = { ...response.data.data, color: form.color };
+                onSaved(savedGroup, isEdit);
                 onClose();
             } else {
-                setError(response.data.message || 'Failed to create group.');
+                setError(response.data.message || `Failed to ${isEdit ? 'update' : 'create'} group.`);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'An error occurred.');
@@ -53,8 +69,10 @@ const CreateGroupModal = ({ onClose, onCreated }) => {
                 {/* Header */}
                 <div className="flex items-start justify-between p-6 border-b border-gray-800/50">
                     <div>
-                        <h2 className="text-lg font-bold text-white">Create New Group</h2>
-                        <p className="text-xs text-gray-500 font-mono mt-1">Define a group with optional prompt manipulation for experiments.</p>
+                        <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit Group' : 'Create New Group'}</h2>
+                        <p className="text-xs text-gray-500 font-mono mt-1">
+                            {isEdit ? 'Update the group details below.' : 'Define a group with optional prompt manipulation for experiments.'}
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-800/50 rounded-lg transition-all">
                         <X size={18} />
@@ -91,7 +109,7 @@ const CreateGroupModal = ({ onClose, onCreated }) => {
                     {/* Prompt Manipulation */}
                     <div>
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] block mb-2">
-                            <span className="text-emerald-500/50 mr-1">{'>_'}</span> Prompt Tweaks
+                            <span className="text-emerald-500/50 mr-1">{'>'}_</span> Prompt Tweaks
                         </label>
                         <textarea
                             rows={4}
@@ -129,15 +147,40 @@ const CreateGroupModal = ({ onClose, onCreated }) => {
                     <button
                         onClick={handleSubmit}
                         disabled={submitting}
-                        className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {submitting ? 'Creating...' : 'Create Group'}
+                        {isEdit ? <Save size={14} /> : <Plus size={14} />}
+                        {submitting ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Group')}
                     </button>
                 </div>
             </div>
         </div>
     );
 };
+
+/* ─── Delete Confirmation Modal ──────────────────────────────────────────── */
+const DeleteConfirmModal = ({ name, onConfirm, onClose, deleting }) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="w-full max-w-sm bg-[#0f1520] border border-gray-800/60 rounded-2xl shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-2">Delete Group</h3>
+            <p className="text-sm text-gray-400 mb-6">
+                Are you sure you want to delete <span className="text-white font-semibold">"{name}"</span>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+                <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all">
+                    Cancel
+                </button>
+                <button
+                    onClick={onConfirm}
+                    disabled={deleting}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-500 hover:bg-rose-600 text-white transition-all disabled:opacity-50"
+                >
+                    {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+            </div>
+        </div>
+    </div>
+);
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 const AdminGroups = () => {
@@ -146,11 +189,14 @@ const AdminGroups = () => {
     const [viewMode, setViewMode] = useState('cards');
     const [visiblePrompts, setVisiblePrompts] = useState({});
     const [showModal, setShowModal] = useState(false);
+    const [editingGroup, setEditingGroup] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         const fetchGroups = async () => {
             try {
-                const response = await axiosInstance.get('/api/groups/all');
+                const response = await axiosInstance.get('/groups/all');
                 if (response.data.success) setGroups(response.data.data);
             } catch (error) {
                 console.error('Error fetching groups:', error);
@@ -161,8 +207,28 @@ const AdminGroups = () => {
         fetchGroups();
     }, []);
 
-    const handleCreated = (newGroup) => {
-        setGroups(prev => [newGroup, ...prev]);
+    const handleSaved = (savedGroup, isEdit) => {
+        if (isEdit) {
+            setGroups(prev => prev.map(g => g._id === savedGroup._id ? savedGroup : g));
+        } else {
+            setGroups(prev => [savedGroup, ...prev]);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        try {
+            const response = await axiosInstance.delete(`/groups/delete/${deleteTarget._id}`);
+            if (response.data.success) {
+                setGroups(prev => prev.filter(g => g._id !== deleteTarget._id));
+                setDeleteTarget(null);
+            }
+        } catch (err) {
+            console.error('Error deleting group:', err);
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const togglePromptVisibility = (groupId) => {
@@ -179,7 +245,31 @@ const AdminGroups = () => {
 
     return (
         <div className="flex h-screen bg-[#0b0f14] text-white overflow-hidden">
-            {showModal && <CreateGroupModal onClose={() => setShowModal(false)} onCreated={handleCreated} />}
+            {/* Create modal */}
+            {showModal && (
+                <GroupModal
+                    onClose={() => setShowModal(false)}
+                    onSaved={handleSaved}
+                />
+            )}
+            {/* Edit modal */}
+            {editingGroup && (
+                <GroupModal
+                    group={editingGroup}
+                    onClose={() => setEditingGroup(null)}
+                    onSaved={handleSaved}
+                />
+            )}
+            {/* Delete confirmation */}
+            {deleteTarget && (
+                <DeleteConfirmModal
+                    name={deleteTarget.name}
+                    onConfirm={handleDelete}
+                    onClose={() => setDeleteTarget(null)}
+                    deleting={deleting}
+                />
+            )}
+
             <AdminSidebar />
 
             <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#0b0f14]">
@@ -240,13 +330,26 @@ const AdminGroups = () => {
                                         <h2 className="text-lg font-bold text-gray-100 flex items-center gap-3">
                                             {group.name}
                                             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-800/50 border border-gray-700/50 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                                <Users size={12} />{group.members?.length || 0}
+                                                <Users size={12} />{group.users?.length || 0}
                                             </span>
                                         </h2>
                                     </div>
-                                    <button className="p-2 text-gray-600 hover:text-gray-300 hover:bg-gray-800/50 rounded-lg transition-all">
-                                        <Settings size={18} />
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => setEditingGroup(group)}
+                                            className="p-2 text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
+                                            title="Edit group"
+                                        >
+                                            <Pencil size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => setDeleteTarget(group)}
+                                            className="p-2 text-gray-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                                            title="Delete group"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <p className="text-sm text-gray-500 mb-6 max-w-2xl">
                                     {group.description || 'No description provided for this group.'}
@@ -256,13 +359,16 @@ const AdminGroups = () => {
                                     <div className="bg-[#0b0f14]/80 border border-gray-800/50 rounded-2xl p-4 relative overflow-hidden">
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                                                <span className="text-emerald-500/50">{'>_'}</span> PROMPT MANIPULATION
+                                                <span className="text-emerald-500/50">{'>'}_</span> PROMPT MANIPULATION
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 <button onClick={() => togglePromptVisibility(group._id)} className="p-1.5 text-gray-600 hover:text-emerald-400 transition-colors">
                                                     {visiblePrompts[group._id] ? <EyeOff size={14} /> : <Eye size={14} />}
                                                 </button>
-                                                <button className="p-1.5 text-gray-600 hover:text-emerald-400 transition-colors">
+                                                <button
+                                                    onClick={() => navigator.clipboard.writeText(group.promptTweaks)}
+                                                    className="p-1.5 text-gray-600 hover:text-emerald-400 transition-colors"
+                                                >
                                                     <Copy size={14} />
                                                 </button>
                                             </div>
