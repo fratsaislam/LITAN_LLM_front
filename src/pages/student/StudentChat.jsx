@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "../../components/Layout";
+import MarkdownMessage from "../../components/MarkdownMessage";
 import axiosInstance from "../../api/axiosInstance";
-import { Send, Bot, User, Plus, Trash2, MessageSquare, Loader2 } from "lucide-react";
+import { Send, Bot, Plus, Trash2, MessageSquare, Loader2 } from "lucide-react";
+import { useUserDetails } from "../../hooks/useUserDetails";
 
 const StudentChat = () => {
   const navigate = useNavigate();
+  const { user } = useUserDetails();
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
@@ -311,33 +314,35 @@ const StudentChat = () => {
                       msg.role === "user" ? "flex-row-reverse" : "flex-row"
                     }`}
                   >
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        msg.role === "user"
-                          ? "bg-emerald-500 text-black"
-                          : "bg-gray-800 text-emerald-400"
-                      }`}
-                    >
-                      {msg.role === "user" ? (
-                        <User size={16} />
-                      ) : (
+                    {msg.role === "user" ? (
+                      <div className="w-8 h-8 rounded-full shrink-0 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center overflow-hidden">
+                        {user?.profilePic ? (
+                          <img src={user.profilePic} alt={user.username} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-emerald-500">
+                            {user?.username?.charAt(0)?.toUpperCase() || "U"}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-gray-800 text-emerald-400">
                         <Bot size={16} />
-                      )}
-                    </div>
+                      </div>
+                    )}
                     <div
                       className={`space-y-1 ${
                         msg.role === "user" ? "items-end" : "items-start"
                       }`}
                     >
-                      <div
-                        className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                          msg.role === "user"
-                            ? "bg-emerald-600/20 text-emerald-50 border border-emerald-500/20"
-                            : "bg-gray-800/50 text-gray-200 border border-gray-700"
-                        }`}
-                      >
-                        {msg.content}
-                      </div>
+                      {msg.role === "user" ? (
+                        <div className="px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap bg-emerald-600/20 text-emerald-50 border border-emerald-500/20">
+                          {msg.content}
+                        </div>
+                      ) : (
+                        <div className="px-4 py-3 rounded-2xl bg-gray-800/50 text-gray-200 border border-gray-700 max-w-none">
+                          <MarkdownMessage content={msg.content} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
