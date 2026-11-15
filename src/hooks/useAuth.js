@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
+import { getBypassUser, isAuthBypassEnabled } from '../authBypass';
 
 export const useAuth = () => {
   const navigate = useNavigate();
@@ -10,6 +11,15 @@ export const useAuth = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      if (isAuthBypassEnabled()) {
+        setIsAuthenticated(true);
+        setUser(getBypassUser());
+        localStorage.setItem('role', 'student');
+        localStorage.setItem('authToken', 'screenshot-bypass');
+        setLoading(false);
+        return;
+      }
+
       try {
         const response = await axiosInstance.get('/auth/check');
 

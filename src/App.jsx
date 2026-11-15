@@ -13,13 +13,14 @@ import AdminExercises from "./pages/admin/AdminExercises";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminSettings from "./pages/admin/AdminSettings";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { isAuthBypassEnabled } from "./authBypass";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         {/* Public routes */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={isAuthBypassEnabled() ? <Navigate to="/home" replace /> : <Login />} />
         <Route path="/register" element={<Register />} />
 
         {/* Protected Student routes */}
